@@ -8,6 +8,8 @@ use std::path::Path;
 
 struct Interface;
 
+// libinput uses open_restricted and close_restricted methods instead of opening or closing file descriptors directly
+// This allows access to input devices without privelige escalation
 impl LibinputInterface for Interface {
     fn open_restricted(&mut self, path: &Path, flags: i32) -> Result<OwnedFd, i32> {
         OpenOptions::new()
@@ -24,6 +26,9 @@ impl LibinputInterface for Interface {
 }
 
 fn main() {
+    // Keycode / name hashmap, values borrowed from /usr/include/linux/input-event-codes.h
+    // input crate does not provide a built-in lookup table
+    // TODO: Clean up duplicate keycodes
     let keycodes = HashMap::from([
         (0, "KEY_RESERVED"),
         (1, "KEY_ESC"),
@@ -540,12 +545,18 @@ fn main() {
         (0x2ff, "KEY_MAX"),
         (0x300, "KEY_CNT"),
     ]);
+    // Create a libinput context with a udev backend
+    // Libinput provides a path backend, where device addition and removal are handled by the
+    // caller, and a udev backend, where notifications about new and removed devices are provided
+    // by udev.
     let mut input = Libinput::new_with_udev(Interface);
     input.udev_assign_seat("seat0").unwrap();
     loop {
+        // Get the latest events
         input.dispatch().unwrap();
         for event in &mut input {
             match event {
+                // Print out key press/release events
                 input::Event::Keyboard(key) => {
                     print!(
                         "\nKey {} {:?}\n",

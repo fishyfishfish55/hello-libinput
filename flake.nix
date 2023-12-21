@@ -26,6 +26,7 @@
 
               # libs
               udev
+              libinput
 
               # Tools
               pkg-config

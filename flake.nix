@@ -1,45 +1,23 @@
 {
-  description = "Introduction to libinput";
+  inputs = {
+    naersk.url = "github:nix-community/naersk/master";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    utils.url = "github:numtide/flake-utils";
+  };
 
-  inputs = { nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable"; };
-
-  outputs = { self, nixpkgs, ... }:
-    let
-      pkgsFor = system:
-        import nixpkgs {
-          inherit system;
-          overlays = [ ];
+  outputs = { self, nixpkgs, utils, naersk }:
+    utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+        naersk-lib = pkgs.callPackage naersk { };
+      in
+      {
+        defaultPackage = naersk-lib.buildPackage ./.;
+        devShell = with pkgs; mkShell {
+          name = "hello-libinput-devel";
+          buildInputs = [ cargo rustc rustfmt pre-commit rustPackages.clippy libinput ];
+          nativeBuildInputs = [ pkg-config ];
+          RUST_SRC_PATH = rustPlatform.rustLibSrc;
         };
-
-      targetSystems = [ "aarch64-linux" "x86_64-linux" ];
-    in {
-      devShells = nixpkgs.lib.genAttrs targetSystems (system:
-        let pkgs = pkgsFor system;
-        in {
-          default = pkgs.mkShell {
-            name = "hello-libinput-devel";
-            nativeBuildInputs = with pkgs; [
-              # Compilers
-              cargo
-              rustc
-              scdoc
-
-              # libs
-              udev
-              libinput
-
-              # Tools
-              pkg-config
-              clippy
-              gdb
-              gnumake
-              rust-analyzer
-              rustfmt
-              strace
-              valgrind
-              zip
-            ];
-          };
-        });
-    };
+      });
 }
